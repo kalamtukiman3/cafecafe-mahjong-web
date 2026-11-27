@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14532d">
+<title>Cafe Mahjong</title>
+<link rel="icon" href="./icon.svg">
+<script src="./stack-labels.js"></script>
+  <script type="module" crossorigin src="./assets/index-32V4dvo_.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Dn52hL7_.css">
+</head>
+<body>
+<header class="top">
+ <div class="logo"><svg width="30" height="36" viewBox="0 0 30 36"><rect x="1" y="3" width="28" height="32" rx="6" fill="#cfc5ab"/><rect x="1" y="1" width="28" height="31" rx="6" fill="#f6f1e4"/><text x="15" y="24" text-anchor="middle" font-size="18" font-weight="800" fill="#c8282d">中</text></svg><span>Cafe Mahjong</span></div>
+ <select id="tenSel" class="hide" aria-label="Pilih cafe" style="max-width:260px"></select>
+ <button class="btn red hide" id="loginBtn" data-act="gologin" style="min-height:40px;padding:8px 18px">Masuk</button>
+ <div class="whoW hide" id="whoW"><button class="who" data-act="who" aria-haspopup="true"><span class="av" id="whoAv"></span><span id="whoN"></span><b class="nb hide" id="whoB"></b></button><div class="menu2 hide" id="whoMenu"></div></div>
+ <button class="bell" id="bell" aria-label="Peringatan stok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9a6 6 0 1 1 12 0c0 6 3 7 3 7H3s3-1 3-7M10 20a2 2 0 0 0 4 0"/></svg><b id="bellN">0</b></button>
+</header>
+<div class="shell">
+ <nav class="side" id="side" aria-label="Menu utama"></nav>
+ <main id="view"></main>
+</div>
+<nav class="bot" id="bot" aria-label="Menu utama"></nav>
+<div class="toast" id="toast" role="status"></div>
+<div class="ov hide" id="ov"><div class="dlg" role="dialog" aria-modal="true" id="dlg"></div></div>
+</body>
+</html>
