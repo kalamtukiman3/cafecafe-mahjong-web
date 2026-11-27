@@ -61,7 +61,7 @@ const hpp=m=>Object.entries(rOf(m)).reduce((a,[k,v])=>a+v*(stock[k]?stock[k].c:0
 const can=m=>Object.entries(rOf(m)).every(([k,v])=>stock[k]&&stock[k].q>=v);
 const low=()=>Object.values(stock).filter(s=>s.q<=s.min);
 let cart={},cat='Semua',bookSel=null,dayI=0,selTable=4;
-const players=['Sinta','Budi','Rudi','Dimas'];
+const players=CLOUD?['Pemain 1','Pemain 2','Pemain 3','Pemain 4']:['Sinta','Budi','Rudi','Dimas'];
 const RULES={
  sederhana:{n:'Sederhana (aturan rumah)',u:'Jumlah fan',d:'1 fan = 1.000 poin. Zimo: ketiga lawan bayar 1× nilai. Dari buangan: pembuang bayar 3× nilai.',start:0,
   sample:[{w:0,how:'zimo',d:null,f:3},{w:2,how:'buang',d:1,f:5},{w:1,how:'buang',d:3,f:2}]},
@@ -73,7 +73,7 @@ const RULES={
   sample:[{w:0,how:'zimo',d:null,f:3900},{w:2,how:'buang',d:1,f:8000},{w:1,how:'buang',d:3,f:2000}]},
  menang:{n:'Hitung menang saja',u:'',d:'Tanpa fan. Menang dari buangan +2, zimo +3, pembuang −1. Paling mudah untuk pemula atau turnamen santai.',start:0,
   sample:[{w:0,how:'zimo',d:null,f:0},{w:2,how:'buang',d:1,f:0},{w:1,how:'buang',d:3,f:0}]}};
-let rule='sederhana',rounds=RULES[rule].sample.map(r=>({...r}));
+let rule='sederhana',rounds=CLOUD?[]:RULES[rule].sample.map(r=>({...r}));
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),2600)}
 function bell(){$('#bellN').textContent=low().length}
@@ -249,7 +249,7 @@ V.hargamenu=()=>`<h1>Harga menu <span class="code">A-05</span></h1><p class="sub
  ${menu.map((x,i)=>{const h=hpp(x);return `<tr><td><div class="row" style="flex-wrap:nowrap;gap:8px;align-items:center">${mThumb(x,40)}<input class="tin tl" id="mn-${i}" value="${x.n.replace(/"/g,'&quot;')}" required></div>${pkgList(x)}</td><td><select class="tin tl" id="mc-${i}">${MCATS.map(c=>`<option ${c===x.c?'selected':''}>${c}</option>`).join('')}</select></td>
  <td><input class="tin" type="number" step="500" min="0" inputmode="numeric" id="mp-${i}" value="${x.p}"></td><td class="n">${rp(h)}</td><td class="n">${x.p?Math.round((1-h/x.p)*100):0}%</td><td><button type="button" class="btn ghost" style="padding:6px 12px;min-height:38px" data-mres="${x.id}">${isPkg(x)?'Isi paket & foto':'Resep & foto'}</button></td></tr>`}).join('')}</tbody></table>
  <div class="row" style="margin-top:12px"><button type="button" class="btn ghost" data-act="addmenu">+ Tambah menu</button><button class="btn red">Simpan harga menu</button></div></form>`;
-V.resep=()=>{const m=menu.find(x=>x.id===menuSel)||menu[0];if(!recDraft||recDraft.id!==m.id)recDraft={id:m.id,r:Object.entries(m.r),pk:(m.pk||[]).map(x=>[...x])};
+V.resep=()=>{if(!menu.length)return `<h1>Resep</h1><div class="card" style="max-width:640px"><h2>Belum ada menu</h2><p style="color:var(--mut)">Tambahkan menu dulu di Harga menu, lalu atur resep dan fotonya di sini.</p><a class="btn red" style="text-decoration:none" href="#hargamenu">Buka Harga menu</a></div>`;const m=menu.find(x=>x.id===menuSel)||menu[0];if(!recDraft||recDraft.id!==m.id)recDraft={id:m.id,r:Object.entries(m.r),pk:(m.pk||[]).map(x=>[...x])};
  const h=recDraft.r.reduce((a,[k,v])=>a+v*(stock[k]?stock[k].c:0),0);
  return `<h1>Resep menu <span class="code">G-04</span></h1><p class="sub">Atur takaran bahan per porsi. Resep dipakai untuk memotong stok gudang otomatis setiap ada pesanan.</p>
  <div class="card row" style="align-items:center;gap:10px;margin-bottom:14px;padding:14px 18px"><div style="flex:1;min-width:220px"><b>Upload resep dari Excel</b><div style="font-size:13px;color:var(--mut)">Isi template, lalu upload. Data dicek dulu di pratinjau sebelum disimpan. Bisa .xlsx atau .csv.</div></div><button type="button" class="btn ghost" data-act="rtpl">Unduh template</button><label class="btn red" style="cursor:pointer;margin:0">Upload file Excel<input type="file" id="recFile" accept=".xlsx,.csv" style="display:none"></label></div>
@@ -670,6 +670,10 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
  else if(d.auth){authStep=d.auth;authMode=d.auth;rerender()}
  else if(d.act==='resend'){if(CLOUD)CMB.resend(pend.email).then(()=>toast('Kode OTP baru dikirim ke '+pend.email)).catch(err=>toast(err.message));else toast('Kode OTP baru dikirim ke '+pend.email)}
  else if(d.act==='forgot'){if(CLOUD)CMB.forgotDlg();else toast('Link atur ulang password dikirim ke email')}
+ else if(d.tdel){const t=TEN.find(x=>x.id===d.tdel);if(!t)return;const n=staffOf(t.id).length;openDlg(`<h2>Hapus tenant ${xe(t.n)}?</h2><p style="margin-top:0">Semua data cafe ini akan dihapus permanen: meja, menu, resep, stok, booking, pesanan, keuangan, tagihan langganan, dan ${n} akun staf. Data yang sudah dihapus tidak bisa dikembalikan.</p><p style="color:var(--mut)">Kalau hanya ingin berhenti sementara, pakai tombol Nonaktifkan.</p><label class="f"><span>Ketik nama tenant <b>${xe(t.n)}</b> untuk konfirmasi</span><input id="tdelN" autocomplete="off"></label><div class="row"><button type="button" class="btn red" data-tdelok="${t.id}">Hapus permanen</button><button type="button" class="btn ghost" data-act="dlgx">Batal</button></div>`)}
+ else if(d.tdelok){const t=TEN.find(x=>x.id===d.tdelok);if(!t)return;const v=($('#tdelN').value||'').trim().toLowerCase();if(v!==t.n.trim().toLowerCase()){toast('Nama tenant belum sama. Ketik persis: '+t.n);return}
+  if(CLOUD){b.disabled=true;toast('Menghapus '+t.n+'...');CMB.deleteTenant(t.id).then(()=>{closeDlg();toast('Tenant '+t.n+' sudah dihapus')}).catch(err=>{b.disabled=false;toast(err.message)});return}
+  putA(TEN,TEN.filter(x=>x.id!==t.id));putA(ACCS,ACCS.filter(a=>a.t!==t.id));delete tStore[t.id];if(curT===t.id&&TEN.length)switchT(TEN[0].id);closeDlg();toast('Tenant '+t.n+' sudah dihapus');rerender()}
  else if(d.ttog){const t=TEN.find(x=>x.id===d.ttog);t.on=!t.on;if(t.on)t.susp=false;toast(`${t.n} ${t.on?'diaktifkan':'dinonaktifkan'}`);rerender()}
  else if(d.utog&&CLOUD){const a=ACCS[+d.utog];CMB.staff('toggle',{id:a.id}).then(r=>toast(`${a.nama} ${r.active?'diaktifkan':'dinonaktifkan'}`)).catch(err=>toast(err.message))}
  else if(d.utog){const a=ACCS[+d.utog];a.off=!a.off;toast(`${a.nama} ${a.off?'dinonaktifkan':'diaktifkan'}`);rerender()}
@@ -731,7 +735,7 @@ document.addEventListener('change',e=>{const g=e.target;
  if(g.id==='cHow'){cHow=g.value;if(cD===cP)cD=(cP+1)%4;rerender();return}
  if(g.id==='cD'){cD=+g.value;rerender();return}
  if(g.id==='tileImg'&&g.files[0]){try{photoURL=URL.createObjectURL(g.files[0])}catch(_){photoURL=''}scanN++;scan='proc';rerender();setTimeout(()=>{scan='done';rerender()},1500);return}
- if(e.target.id==='ruleSel'){rule=e.target.value;rounds=RULES[rule].sample.map(r=>({...r}));calcSel=new Set();scan=null;rerender()}});
+ if(e.target.id==='ruleSel'){rule=e.target.value;rounds=CLOUD?[]:RULES[rule].sample.map(r=>({...r}));calcSel=new Set();scan=null;rerender()}});
 document.addEventListener('click',e=>{if(!e.target.closest('.whoW'))$('#whoMenu').classList.add('hide')});
 document.addEventListener('input',e=>{if(thDraft&&(e.target.id==='thT'||e.target.id==='thS')){thDraft[e.target.id==='thT'?'title':'sub']=e.target.value;thPrev();return}if(e.target.id==='cashIn'){cashIn=+e.target.value||0;const b=bill(tables[selTable]),k=$('#kembali');if(k)k.textContent=cashIn>=b.tot?rp(cashIn-b.tot):'-'}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&dlgOpen)closeDlg()});
@@ -833,7 +837,7 @@ V.tenant=()=>{const act=TEN.filter(t=>t.on).length,pend=INV.filter(v=>v.k==='men
  <div class="grid g3" style="margin-bottom:16px"><div class="card"><small style="color:var(--mut)">Tenant aktif</small><div class="total">${act} dari ${TEN.length}</div></div><div class="card"><small style="color:var(--mut)">Pendapatan langganan / bulan</small><div class="total">${rp(TEN.filter(t=>!t.susp).reduce((a,t)=>a+pk(t.plan).p,0))}</div></div><div class="card"><small style="color:var(--mut)">Bukti bayar menunggu</small><div class="total">${pend}</div>${pend?'<a href="#validasi" style="font-size:14px">Validasi sekarang</a>':''}</div></div>
  <div class="card scroll" style="margin-bottom:16px"><h2>Daftar tenant</h2><table class="t2 stack"><thead><tr><th>Cafe</th><th>Admin</th><th class="n">Meja</th><th class="n">Staf</th><th>Paket</th><th>Langganan</th><th></th></tr></thead><tbody>
  ${TEN.map(t=>{const ad=staffOf(t.id).filter(a=>a.role==='admin'),S=subSt(t);return `<tr><td><div class="row" style="flex-wrap:nowrap;gap:10px;align-items:center">${tLogo(t,36)}<div><b>${xe(t.n)}</b><br><small style="color:var(--mut)">${xe(t.kota)}</small><br><a href="#${t.slug}" style="font-size:13px">${prodUrl(t)}</a></div></div></td><td>${ad.map(a=>`${xe(a.nama)}<br><small style="color:var(--mut)">@${xe(a.u)} · ${xe(a.email)}</small>`).join('<br>')||'-'}</td><td class="n">${tData(t.id).tables.length}</td><td class="n">${staffOf(t.id).length}</td><td>${pk(t.plan).n}<br><small style="color:var(--mut)">s.d. ${fmtD(t.due)}</small></td><td><span class="pill ${t.on?S[1]:'p-bad'}">${t.on?S[0]:t.susp?'Ditangguhkan':'Nonaktif'}</span><br>${t.launch?`<span class="pill p-info" style="margin-top:4px">Sudah launching ${fmtD(t.launch.at)}</span>`:'<span class="pill p-mut" style="margin-top:4px">Belum launching</span>'}</td>
- <td><div class="row" style="gap:6px;flex-wrap:wrap"><button type="button" class="btn red" style="padding:6px 12px;min-height:38px" data-topen="${t.id}">Buka isi</button><button type="button" class="btn" style="padding:6px 12px;min-height:38px" data-tlaunch="${t.id}">${t.launch?'Paket launching':'Launching'}</button><button type="button" class="btn ghost" style="padding:6px 12px;min-height:38px" data-tedit="${t.id}">Ubah nama & logo</button><button type="button" class="btn ghost" style="padding:6px 12px;min-height:38px" data-ttog="${t.id}">${t.on?'Nonaktifkan':'Aktifkan'}</button></div></td></tr>`}).join('')}</tbody></table>
+ <td><div class="row" style="gap:6px;flex-wrap:wrap"><button type="button" class="btn red" style="padding:6px 12px;min-height:38px" data-topen="${t.id}">Buka isi</button><button type="button" class="btn" style="padding:6px 12px;min-height:38px" data-tlaunch="${t.id}">${t.launch?'Paket launching':'Launching'}</button><button type="button" class="btn ghost" style="padding:6px 12px;min-height:38px" data-tedit="${t.id}">Ubah nama & logo</button><button type="button" class="btn ghost" style="padding:6px 12px;min-height:38px" data-ttog="${t.id}">${t.on?'Nonaktifkan':'Aktifkan'}</button><button type="button" class="btn ghost" style="padding:6px 12px;min-height:38px;color:var(--bad,#c8282d)" data-tdel="${t.id}">Hapus</button></div></td></tr>`}).join('')}</tbody></table>
  <p class="note">Tenant nonaktif tidak muncul di pilihan cafe pelanggan dan stafnya tidak bisa login. Datanya tetap tersimpan.</p></div>
  <form class="card" id="tenF" style="max-width:640px"><h2>Tambah tenant</h2><label class="f"><span>Nama cafe</span><input id="tnN" required placeholder="Contoh: Cafe Mahjong BSD"></label><label class="f"><span>Kota / alamat</span><input id="tnK" required placeholder="Tangerang Selatan"></label>
  <label class="f"><span>Paket langganan</span><select id="tnPk">${PAKET.map(p=>`<option value="${p.id}">${p.n} · ${rp(p.p)}/bulan · maks ${p.meja} meja</option>`).join('')}</select></label>
@@ -904,7 +908,7 @@ const slugify=n=>n.toLowerCase().replace(/^cafe\s+mahjong\s*/,'').normalize('NFD
 const slugOk=(sl,id)=>/^[a-z0-9]+(-[a-z0-9]+)*$/.test(sl)&&!RESV.includes(sl)&&!sl.startsWith('comment')&&!views.some(v=>v.id===sl)&&!TEN.some(t=>t.slug===sl&&t.id!==id);
 const uniqSlug=n=>{let b=slugify(n),s=b,i=2;while(!slugOk(s))s=b+'-'+i++;return s};
 const tOf=id=>TEN.find(t=>t.id===id);
-const WEBU='https://kalamtukiman3.github.io/cafecafe-mahjong-web/';const prodUrl=t=>`${WEBU.replace('https://','')}#${t.slug}`;
+const WEBU=(/^https?:$/.test(location.protocol)&&!/^(localhost|127\.)/.test(location.hostname))?location.origin+location.pathname.replace(/[^/]*$/,''):'https://kalamtukiman3.github.io/cafecafe-mahjong-web/';const prodUrl=t=>`${WEBU.replace('https://','')}#${t.slug}`;
 function parseRoute(h){for(const t of [...TEN].sort((a,b)=>b.slug.length-a.slug.length)){if(h===t.slug)return{t:t.id,v:'beranda'};if(h.startsWith(t.slug+'-')){const v=h.slice(t.slug.length+1);if(views.some(x=>x.id===v))return{t:t.id,v}}}return{t:null,v:h}}
 const ctxSlug=()=>role()==='owner'&&!ownerIn?'':(tOf(curT)||{}).slug||'';
 const addrOf=(t,v)=>v&&v!=='beranda'?t.slug+'-'+v:t.slug;
@@ -1178,7 +1182,7 @@ const BK_DAY=864e5;
 const bkToDates=B=>{const o={};Object.entries(B||{}).forEach(([d,L])=>{if(L&&L.length)o[isoD(+d)]=L});return o};
 const bkFromDates=B=>{const o={},t0=new Date(D0[0],D0[1],D0[2]).getTime();Object.entries(B||{}).forEach(([d,L])=>{const [y,m,dd]=d.split('-').map(Number);const off=Math.round((new Date(y,m-1,dd).getTime()-t0)/BK_DAY);o[off]=L});return o};
 const T_KEYS=['tables','menu','HH','week','stock','bookings','stockLog','tarLog','cfg','orders','adj','opx','notif'];
-const blankT=()=>{const c=seedT('new');c.cfg={minH:2,dpPct:30};return c};
+const blankT=()=>{const c=seedT('new');c.cfg={minH:2,dpPct:30};c.menu=[];c.stock={};c.HH=[];return c};
 const ensureT=id=>{if(!tStore[id]&&id!==curT)tStore[id]=blankT();return id===curT?null:tStore[id]};
 const BR={
  T_KEYS,
