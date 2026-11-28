@@ -543,7 +543,38 @@ function exportStock(){const st=s=>s.q<=0?'Habis':s.q<s.min?'Menipis':'Aman';
  const rows=[['Kode','Nama bahan','Satuan','Stok','Stok minimum','Harga rata-rata per satuan (Rp)','Nilai stok (Rp)','Status']].concat(Object.entries(stock).map(([k,s])=>[k,s.n,s.u,s.q,s.min,Math.round(s.c*100)/100,Math.round(s.q*s.c),st(s)]));
  rows.push(['','Total nilai stok','','','','',Object.values(stock).reduce((a,s)=>a+Math.round(s.q*s.c),0),'']);
  const log=[['Tanggal','Bahan','Jumlah','Satuan','Total harga (Rp)','Pemasok / nota']].concat(stockLog.filter(l=>!l.del).map(l=>[l.at,stock[l.k]?stock[l.k].n:l.k,l.q,stock[l.k]?stock[l.k].u:'',l.p,l.sup]));
- dl(makeXlsx([{name:'Stok gudang',rows,w:[10,22,9,10,13,26,16,10]},{name:'Riwayat stok masuk',rows:log,w:[13,22,10,9,16,32]}]),'stok-gudang-26-11-2026.xlsx')}
+ dl(makeXlsx([{name:'Stok gudang',rows,w:[10,22,9,10,13,26,16,10]},{name:'Riwayat stok masuk',rows:log,w:[13,22,10,9,16,32]}]),'stok-gudang-'+DMY().replace(/\//g,'-')+'.xlsx')}
+/* template & import stok gudang */
+const STK_HEAD=['Kode','Nama bahan','Satuan','Stok','Stok minimum','Harga rata-rata per satuan (Rp)'];
+function stockTemplate(){const rows=[STK_HEAD].concat(Object.entries(stock).map(([k,s])=>[k,s.n,s.u,s.q,s.min,Math.round(s.c*100)/100]));
+ dl(makeXlsx([{name:'Stok gudang',rows,w:[12,24,9,10,13,26]},{name:'Petunjuk',rows:[['Petunjuk'],['Satu baris = satu bahan. Wajib diisi: Nama bahan dan Satuan.'],['Satuan: g, ml, pcs, atau satuan lain yang dipakai di resep.'],['Stok dan Stok minimum diisi dalam satuan itu. Harga diisi per satu satuan, misalnya harga per gram.'],['Kode boleh dikosongkan untuk bahan baru. Bahan yang sudah ada dikenali dari Kode atau Nama bahan, lalu angkanya diganti.'],['Kolom yang dikosongkan pada bahan lama tidak diubah.'],[''],['Contoh baris:'],STK_HEAD,['','Beras','g',5000,3000,14],['','Telur','pcs',30,20,2200]],w:[30,22,9,10,13,26]}]),'template-stok-gudang.xlsx')}
+let stkPrev=null;
+let stCsv=false;const stNum=v=>{let t=String(v==null?'':v).replace(/[^\d,.-]/g,'');if(!t)return null;if(stCsv&&/^-?\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,'');else if(t.includes(','))t=t.replace(/\./g,'').replace(',','.');const n=parseFloat(t);return isFinite(n)?n:null};
+function parseStockRows(rows){const h=rows[0].map(x=>x.toLowerCase()),ix=f=>h.findIndex(f);
+ const I={k:ix(x=>x==='kode'||x.startsWith('kode')),n:ix(x=>x.includes('nama')||x==='bahan'),u:ix(x=>x.includes('satuan')&&!x.includes('harga')),q:ix(x=>x.includes('stok')&&!x.includes('min')&&!x.includes('nilai')),m:ix(x=>x.includes('min')),c:ix(x=>x.includes('harga'))};
+ if(I.n<0)throw new Error('Kolom Nama bahan tidak ditemukan. Pakai template dari tombol Unduh template.');
+ const byName=Object.fromEntries(Object.entries(stock).map(([k,s])=>[s.n.toLowerCase(),k])),items=[],err=[],seen=new Set();
+ rows.slice(1).forEach((r,i)=>{const n=(r[I.n]||'').trim(),kd=I.k>=0?(r[I.k]||'').trim():'';if(!n&&!kd)return;if(/^total/i.test(n)&&!kd)return;
+  const k=kd&&stock[kd]?kd:(n&&byName[n.toLowerCase()])||null;if(!n&&!k){err.push(`Baris ${i+2}: Nama bahan kosong`);return}
+  const key=(k||n.toLowerCase());if(seen.has(key)){err.push(`Baris ${i+2}: ${n||kd} muncul dua kali, baris ini dilewati`);return}seen.add(key);
+  const u=I.u>=0?(r[I.u]||'').trim():'',q=I.q>=0?stNum(r[I.q]):null,m=I.m>=0?stNum(r[I.m]):null,c=I.c>=0?stNum(r[I.c]):null;
+  if((q!=null&&q<0)||(m!=null&&m<0)||(c!=null&&c<0)){err.push(`Baris ${i+2}: angka tidak boleh minus`);return}
+  if(!k&&!u){err.push(`Baris ${i+2}: Satuan untuk bahan baru ${n} belum diisi`);return}
+  items.push({k,kd:!k&&/^[a-z0-9_-]{1,30}$/i.test(kd)&&!stock[kd]?kd:'',n:n||stock[k].n,u,q,m,c})});
+ return{items,err}}
+function stkDlg(){const P=stkPrev,f=v=>v==null?'':(+v).toLocaleString('id-ID'),nw=P.items.filter(x=>!x.k).length;
+ const row=it=>{const o=it.k?stock[it.k]:null,u=o?o.u:it.u,ch=(a,b)=>b!=null&&(!o||+a!==+b);
+  const cell=(a,b)=>o&&ch(a,b)?`<s style="color:var(--mut)">${f(a)}</s> ${f(b)}`:f(b!=null?b:(o?a:0));
+  const st=!o?'<span class="pill p-ok">Bahan baru</span>':(ch(o.q,it.q)||ch(o.min,it.m)||ch(Math.round(o.c*100)/100,it.c)||it.n!==o.n)?'<span class="pill p-info">Diubah</span>':'<span class="pill">Sama</span>';
+  return `<tr><td><b>${xe(it.n)}</b>${o&&it.u&&it.u!==o.u?`<br><span class="pill p-warn">satuan tetap ${xe(o.u)}</span>`:''}</td><td>${xe(u)}</td><td style="text-align:right">${cell(o&&o.q,it.q)}</td><td style="text-align:right">${cell(o&&o.min,it.m)}</td><td style="text-align:right">${cell(o&&Math.round(o.c*100)/100,it.c)}</td><td>${st}</td></tr>`};
+ openDlg(`<h2>Pratinjau upload stok</h2><p style="margin-top:0;color:var(--mut)">${xe(P.file)} · ${P.items.length} bahan${nw?` · ${nw} bahan baru`:''}</p>
+ ${P.err.length?`<div class="alert" style="margin-bottom:10px"><b>${P.err.length} baris dilewati:</b> ${P.err.slice(0,4).map(xe).join('; ')}${P.err.length>4?' …':''}</div>`:''}
+ <div style="max-height:46vh;overflow:auto;border:1px solid var(--ln,#e5e0d6);border-radius:10px"><table class="t2" style="width:100%"><thead><tr><th>Bahan</th><th>Satuan</th><th style="text-align:right">Stok</th><th style="text-align:right">Min.</th><th style="text-align:right">Harga/satuan</th><th></th></tr></thead><tbody>${P.items.map(row).join('')}</tbody></table></div>
+ <div class="row" style="margin-top:14px"><button type="button" class="btn red" data-act="stkok">Simpan ${P.items.length} bahan</button><button type="button" class="btn ghost" data-act="dlgx">Batal</button></div>`)}
+function applyStock(){const P=stkPrev;let nb=0,ub=0;
+ P.items.forEach(it=>{if(it.k){const o=stock[it.k],b=JSON.stringify(o);o.n=it.n;if(it.q!=null)o.q=it.q;if(it.m!=null)o.min=it.m;if(it.c!=null)o.c=it.c;if(JSON.stringify(o)!==b)ub++}
+  else{const k=it.kd||('b'+Date.now()+Math.floor(Math.random()*1e4));stock[k]={n:it.n,u:it.u,q:it.q||0,min:it.m||0,c:it.c||0};nb++}});
+ stkPrev=null;closeDlg();toast(`Stok tersimpan: ${ub} bahan diperbarui${nb?`, ${nb} bahan baru`:''}`);rerender()}
 
 let inSel='beras';
 const UNITS=['g','kg','ml','liter','pcs','pack','botol'];
@@ -556,6 +587,7 @@ const bahanEditor=()=>`<form class="card scroll" id="bahF"><h2>Daftar bahan baku
  ${Object.entries(stock).map(([k,s])=>`<tr><td><input class="tin tl" id="bn-${k}" value="${s.n.replace(/"/g,'&quot;')}" required></td><td><input class="tin tl" id="bu-${k}" value="${s.u}" style="min-width:60px" required></td><td class="n">${s.q.toLocaleString('id-ID')}</td><td><input class="tin" type="number" min="0" id="bm-${k}" value="${s.min}" style="min-width:80px"></td><td>${s.q<=0?'<span class="pill p-bad">Habis</span>':s.q<=s.min?'<span class="pill p-warn">Menipis</span>':'<span class="pill p-ok">Aman</span>'}</td></tr>`).join('')}</tbody></table>
  <div class="row" style="margin-top:12px"><button type="button" class="btn ghost" data-act="addbahan">+ Tambah bahan</button><button class="btn red">Simpan daftar bahan</button></div></form>`;
 V.gudang=()=>{const L=low();return `<div class="row" style="justify-content:space-between;align-items:flex-start;gap:10px"><h1 style="margin-bottom:0">Stok gudang bahan <span class="code">G-01 · G-07</span></h1><div class="row" style="margin-top:6px"><a class="btn ghost" href="#mutasi" style="text-decoration:none">Mutasi stok harian</a><button type="button" class="btn ghost" data-act="xstock">Export stok ke Excel</button></div></div><p class="sub">Stok berkurang otomatis dari resep setiap pesanan. Bahan di bawah batas minimum ditandai dan masuk ke lonceng peringatan.</p>
+ <div class="card row" style="align-items:center;gap:10px;margin:14px 0;padding:14px 18px"><div style="flex:1;min-width:220px"><b>Upload stok dari Excel</b><div style="font-size:13px;color:var(--mut)">Unduh template, isi stok, stok minimum, dan harga per satuan, lalu upload. Bahan baru otomatis ditambahkan. Data dicek dulu di pratinjau sebelum disimpan. Bisa .xlsx atau .csv, termasuk file hasil Export stok.</div></div><button type="button" class="btn ghost" data-act="stpl">Unduh template</button><label class="btn red" style="cursor:pointer;margin:0">Upload file Excel<input type="file" id="stkFile" accept=".xlsx,.csv" style="display:none"></label></div>
  ${L.length?`<div class="alert">${svg('box')}<div><b>${L.length} bahan di bawah stok minimum:</b> ${L.map(s=>s.n).join(', ')}. Segera buat pembelian.</div></div>`:''}
  <div class="grid g2">${bahanEditor()}
  <div class="grid" style="align-content:start"><form class="card" id="inF"><h2>Input stok masuk <span class="code">G-03</span></h2>
@@ -625,6 +657,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
  else if(d.act==='rtpl'){recipeTemplate()}
  else if(d.act==='impok'){applyImport()}
  else if(d.act==='xstock'){exportStock()}
+ else if(d.act==='stpl'){stockTemplate()}
+ else if(d.act==='stkok'){applyStock()}
  else if(d.act==='newmenu'){readDraft();menuDlg()}
  else if(d.act==='dlgx'){closeDlg();rerender()}
  else if(d.bedit){const el=$('#'+d.bedit);if(d.bedit!=='inB')readDraft();if(el&&stock[el.value])bahanDlg(el.value,d.bedit)}
@@ -746,6 +780,7 @@ document.addEventListener('change',e=>{const g=e.target;
  if(g.id==='thBg'){thDraft.bg=g.value;thPrev();return}
  if(g.dataset&&g.dataset.spk){const t=TEN.find(x=>x.id===g.dataset.spk);t.plan=g.value;const mj=syncMeja(t.id);toast(`${t.n} pindah ke paket ${pk(g.value).n}${mj?'. '+mj:''}`);rerender();return}
  if(g.id==='tenSel'){switchT(g.value);toast('Cafe dipilih: '+tName(g.value));render();return}
+ if(g.id==='stkFile'&&g.files[0]){const f=g.files[0];readSheet(f).then(rows=>{if(!rows.length)throw new Error('File kosong');stCsv=/\.csv$/i.test(f.name);const r=parseStockRows(rows);if(!r.items.length)throw new Error(r.err[0]||'Tidak ada baris bahan yang valid');stkPrev={...r,file:f.name};stkDlg()}).catch(err=>toast('Gagal membaca file: '+err.message));g.value='';return}
  if(g.id==='recFile'&&g.files[0]){const f=g.files[0];readSheet(f).then(rows=>{if(!rows.length)throw new Error('File kosong');const r=parseRecipeRows(rows);if(!r.menus.length)throw new Error('Tidak ada baris resep yang valid');impPrev={...r,file:f.name};impDlg()}).catch(err=>toast('Gagal membaca file: '+err.message));g.value='';return}
  if(g.id==='splitT'||g.id==='splitN'){splitN=g.id==='splitT'?(g.checked?2:0):+g.value;parts=Array.from({length:splitN},()=>({m:'QRIS',paid:false}));rerender();return}
  if(g.id==='upImg'&&g.files[0]){readImg(g.files[0],u=>{proofTmp=u;rerender()});return}
